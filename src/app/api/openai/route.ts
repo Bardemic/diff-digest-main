@@ -25,12 +25,15 @@ export async function POST(request: Request) {
                 console.log('ran')
 
                 for await (const event of completion) {
-                    console.log(event.delta);
+                    if('delta' in event) {
+                        console.log(event.delta);
 
-                    if(event.delta) {
-                        const message = `data: ${JSON.stringify({content: event.delta})}\n\n`
-                        await writer.write(encoder.encode(message));
+                        if(event.delta) {
+                            const message = `data: ${JSON.stringify({content: event.delta})}\n\n`
+                            await writer.write(encoder.encode(message));
+                        }
                     }
+
                 }
 
                 await writer.write(encoder.encode("data: [DONE]\n\n"));

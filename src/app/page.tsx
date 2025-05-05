@@ -1,6 +1,6 @@
 "use client"; // Mark as a Client Component
 
-import { useState } from "react";
+import {useEffect, useState} from "react";
 
 // Define the expected structure of a diff object
 interface DiffItem {
@@ -18,6 +18,14 @@ interface ApiResponse {
   perPage: number;
 }
 
+interface DiffNote {
+  diffId: string;
+  marketingNotes: string | null;
+  developerNotes: string | null;
+  showMarketingNotes: boolean;
+  showDeveloperNotes: boolean;
+}
+
 export default function Home() {
   const [diffs, setDiffs] = useState<DiffItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -25,6 +33,7 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [nextPage, setNextPage] = useState<number | null>(null);
   const [initialFetchDone, setInitialFetchDone] = useState<boolean>(false);
+  const [activeNotes, setActiveNotes] = useState<Record<string, DiffNote>>({});
 
   const fetchDiffs = async (page: number) => {
     setIsLoading(true);
@@ -46,9 +55,12 @@ export default function Home() {
       }
       const data: ApiResponse = await response.json();
 
-      setDiffs((prevDiffs) =>
-        page === 1 ? data.diffs : [...prevDiffs, ...data.diffs]
-      );
+      setDiffs((prevDiffs) => {
+        const existingIds = new Set(prevDiffs.map(d => d.id));
+        const newUniqueDiffs = data.diffs.filter(d => !existingIds.has(d.id));
+        return page === 1 ? data.diffs : [...prevDiffs, ...newUniqueDiffs];
+      });
+
       setCurrentPage(data.currentPage);
       setNextPage(data.nextPage);
       if (!initialFetchDone) setInitialFetchDone(true);
@@ -71,6 +83,128 @@ export default function Home() {
       fetchDiffs(nextPage);
     }
   };
+
+  useEffect(() => {
+    setActiveNotes(prevNotes => {
+      let notesChanged = false;
+      const newNotesToAdd: Record<string, DiffNote> = {};
+
+      for (const diff of diffs) {
+        if (!prevNotes[diff.id]) {
+          newNotesToAdd[diff.id] = {
+            diffId: diff.id,
+            marketingNotes: null,
+            developerNotes: null,
+            showDeveloperNotes: true,
+            showMarketingNotes: true,
+          };
+          notesChanged = true;
+        }
+      }
+
+      return notesChanged ? { ...prevNotes, ...newNotesToAdd } : prevNotes;
+    });
+  }, [diffs]);
+
+
+  const onDiffCreateClick = async (id: string, category: "Developer" | "Marketing") => {
+    const typeToChange = category == "Marketing" ? "marketingNotes" : "developerNotes";
+    setActiveNotes(prevNotes => {
+      return {
+        ...prevNotes,
+        [id]: {
+          ...prevNotes[id],
+          [typeToChange]: "loading..."
+        }
+      };
+    });
+    const prompt = JSON.stringify({content: diffs.find(diff => diff.id === id)?.diff});
+    const response = await fetch('/api/openai', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({prompt: prompt, mode: category}),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error ${response.status}`);
+    }
+    console.log(response)
+
+    const reader = response?.body?.getReader();
+    const decoder = new TextDecoder();
+
+    while(true) {
+      // @ts-ignore
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value);
+
+      const messages = chunk.split('\n\n').filter(Boolean);
+
+      for (const message of messages) {
+        if (message.includes('data: ')) {
+          const data = message.replace('data: ', '');
+
+          if (data === '[DONE]') {
+            setIsLoading(false);
+            continue;
+          }
+          try {
+            const parsedData = JSON.parse(data);
+
+            if (parsedData.error) {
+              setActiveNotes(prevNotes => {
+                return {
+                  ...prevNotes,
+                  [id]: {
+                    ...prevNotes[id],
+                    [typeToChange]: "error while loading notes, please try again"
+                  }
+                };
+              });
+              continue;
+            }
+            console.log(parsedData)
+
+
+            if (parsedData.content) {
+              setActiveNotes(prevNotes => {
+                return {
+                  ...prevNotes,
+                  [id]: {
+                    ...prevNotes[id],
+                    [typeToChange]: prevNotes[id][typeToChange] + parsedData.content
+                  }
+                };
+              });
+            }
+          } catch (e) {
+            console.error('Error parsing SSE message:', e);
+          }
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+
+  }, [diffs]);
+
+  const toggleNotes = (noteType: "Marketing" | "Developer", noteId: string) => {
+    const typeToChange = noteType == "Marketing" ? "showMarketingNotes" : "showDeveloperNotes";
+    setActiveNotes(prevNotes => {
+      return {
+        ...prevNotes,
+        [noteId]: {
+          ...prevNotes[noteId],
+          [typeToChange]: !prevNotes[noteId][typeToChange]
+        }
+      };
+    });
+  }
 
   return (
     <main className="flex min-h-screen flex-col items-center p-12 sm:p-24">
@@ -126,6 +260,60 @@ export default function Home() {
                     PR #{item.id}:
                   </a>
                   <span className="ml-2">{item.description}</span>
+                  <span className='ml-2 group underline relative text-blue-500 hover:text-blue-600'>
+                    Create Diff Description
+                    <div className='absolute text-sm text-center rounded m-6 min-w-60 group-hover:flex top-[-50px] w-full left-[-50px] hidden '>
+                      <div onClick={() => {onDiffCreateClick(item.id, "Developer")}} className='cursor-pointer p-1 rounded-l hover:bg-gray-700 bg-gray-600 text-white'>
+                        Developer Notes
+                      </div>
+                      <div onClick={() => {onDiffCreateClick(item.id, "Marketing")}} className='cursor-pointer p-1 rounded-r  hover:bg-blue-700 bg-blue-600 text-white'>
+                        Marketing Notes
+                      </div>
+                    </div>
+                  </span>
+
+
+                  {activeNotes[item.id] && (activeNotes[item.id].marketingNotes || activeNotes[item.id].developerNotes) &&
+                    <div className='mx-6 outline-gray-300 rounded outline flex flex-col gap-4 justify-start items-start p-2 pt-1'>
+                      {activeNotes[item.id].developerNotes &&
+                          <div className='flex w-full flex-col gap-2'>
+                            <h3 className='border-b-1 w-full font-bold flex justify-start items-center gap-2 border-gray-300'>
+                              Developer Notes
+                              <svg onClick={() => toggleNotes("Developer", item.id)} className='h-4 cursor-pointer' xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/></svg>
+                            </h3>
+                            {activeNotes[item.id].showDeveloperNotes &&
+                                <ul className='list-decimal list-inside'>
+                                  {activeNotes[item.id].developerNotes != "loading..." ? activeNotes[item.id].developerNotes.split("///").map((point, index) => index != 0 && (
+                                      <li className='mb-1' key={index}>
+                                        {point}
+                                      </li>
+                                  )) : <p>loading...</p>
+                                  }
+                                </ul>
+                            }
+                          </div>
+                      }
+                      {activeNotes[item.id].marketingNotes &&
+                          <div className='flex w-full flex-col gap-2'>
+                            <h3 className='border-b-1 w-full font-bold flex justify-start items-center gap-2 border-gray-300'>
+                              Marketing Notes
+                              <svg onClick={() => toggleNotes("Marketing", item.id)} className='h-4 cursor-pointer' xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/></svg>
+                            </h3>
+                            {activeNotes[item.id].showMarketingNotes &&
+                            <ul className='list-decimal list-inside'>
+                              {activeNotes[item.id].marketingNotes != null && activeNotes[item.id].marketingNotes.split("///").map((point, index) => index != 0 && (
+                                  <li className='mb-1' key={index}>
+                                    {point}
+                                  </li>
+                              ))}
+                            </ul>
+                            }
+                          </div>
+                      }
+                    </div>
+                  }
+
+
                   {/* We won't display the full diff here, just the description */}
                 </li>
               ))}

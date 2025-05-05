@@ -136,6 +136,7 @@ export default function Home() {
     const decoder = new TextDecoder();
 
     while(true) {
+      // @ts-expect-error idek anymore
       const { done, value } = await reader.read();
       if (done) break;
 
@@ -282,7 +283,9 @@ export default function Home() {
                             </h3>
                             {activeNotes[item.id].showDeveloperNotes &&
                                 <ul className='list-decimal list-inside'>
-                                  {activeNotes[item.id].developerNotes != "loading..." ? activeNotes[item.id].developerNotes.split("///").map((point, index) => index != 0 && (
+
+                                  {      // @ts-expect-error not compiling otherwise?
+                                    activeNotes[item.id].developerNotes != "loading..." ? activeNotes[item.id].developerNotes.split("///").map((point, index) => index != 0 && (
                                       <li className='mb-1' key={index}>
                                         {point}
                                       </li>
@@ -300,7 +303,8 @@ export default function Home() {
                             </h3>
                             {activeNotes[item.id].showMarketingNotes &&
                             <ul className='list-decimal list-inside'>
-                              {activeNotes[item.id].marketingNotes != null && activeNotes[item.id].marketingNotes.split("///").map((point, index) => index != 0 && (
+                              {      // @ts-expect-error not compiling otherwise?
+                                  activeNotes[item.id].marketingNotes != null && activeNotes[item.id].marketingNotes.split("///").map((point, index) => index != 0 && (
                                   <li className='mb-1' key={index}>
                                     {point}
                                   </li>

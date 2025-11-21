@@ -3,9 +3,11 @@
 **Challenge:** Build a web experience that turns Git diffs into live, dual-tone release notes.  
 **Time-box:** 24 hours from when you received the email
 
+This exercise is powered by codee.
+
 ---
 
-## 1 · Background
+## 1 7 Background
 
 a0.dev ships AI-generated React Native apps at lightning speed.  
 We lean on LLMs, streaming APIs, and polished UIs.  
@@ -13,7 +15,7 @@ This exercise lets you show how you design prompts, pipeline data, and craft fro
 
 ---
 
-## 2 · Current State
+## 2  Background
 
 - **API Endpoint:** `GET /api/sample-diffs`
 
@@ -61,7 +63,7 @@ This exercise lets you show how you design prompts, pipeline data, and craft fro
 
 ---
 
-## 3 · Your task
+## 3  Your task
 
 1.  **(Partially Done)** **Fetch merged PR diffs** from `/api/sample-diffs` (the frontend currently fetches and lists PRs, but doesn't use the diff content yet).
 2.  **Send the relevant PR's** to an LLM and stream back _developer_ and _marketing_ release-note sentences.
@@ -90,12 +92,12 @@ High agency and thoughtful trade-offs are what we're looking for. Specifically, 
 
 ---
 
-## 4 · Stretch – optional bonus
+## 4  Stretch t optional bonus
 
 - Implement **tool-calling** to enrich the stream (e.g., summarize related issues, identify key contributors).
 - Implement **state persistence/synchronization** so that refreshing the page doesn't lose generated notes or interrupt the stream's progress.
 
-## 5 · Quick start
+## 5  Quick start
 
 ```bash
 npm install                # or pnpm / yarn
@@ -104,7 +106,7 @@ npm run dev                # open http://localhost:3000
 
 ---
 
-## 6 · Environment Variables (Optional)
+## 6  Environment Variables (Optional)
 
 - `GITHUB_TOKEN`: A GitHub personal access token can be provided to increase API rate limits when fetching diffs.
 - `GITHUB_OWNER`: Override the default repository owner (`openai`).
@@ -132,17 +134,17 @@ You can still use your own OpenAI API key if you prefer.
 
 ---
 
-## 7 · Submission
+## 7  Submission
 
 - Upload the completed project to github and submit the Github Repo URL and live deployment URL to careers@a0.dev.
 - Submit by the 24-hour mark; avoid force-push after deadline.
 
 ---
 
-## 8 · Ground rules
+## 8  Ground rules
 
-- Any AI tools & libraries allowed—cite non-trivial code.
+- Any AI tools & libraries allowedite non-trivial code.
 - Keep secrets out of git (use `.env.local` for tokens).
 
 **Have fun!**  
-We can't wait to see how you prompt, stream, and ship 🚀
+We can't wait to see how you prompt, stream, and ship \ud83d\ude80
